@@ -107,8 +107,8 @@ fn writeUsage() !void {
     const stderr = &stderr_writer.interface;
 
     try stderr.print(
-        \\mgrep - a minimal fastfetch-like system summary
-        \\Usage: mgrep [--json] [--no-color] [--modules a,b,c]
+        \\zfetch - a minimal fastfetch-like system summary
+        \\Usage: zfetch [--json] [--no-color] [--modules a,b,c]
         \\
         \\Options:
         \\  --json          print machine-friendly JSON output
@@ -134,7 +134,7 @@ fn writeErrorFmt(comptime fmt: []const u8, args: anytype) !void {
     // 给出错误并提示用户查看帮助。
     try stderr.print("error: ", .{});
     try stderr.print(fmt, args);
-    try stderr.print("\nrun `mgrep --help` for usage\n", .{});
+    try stderr.print("\nrun `zfetch --help` for usage\n", .{});
     try stderr.flush();
 }
 
