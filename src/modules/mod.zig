@@ -7,13 +7,16 @@ const memory = @import("memory.zig");
 const shell = @import("shell.zig");
 const uptime = @import("uptime.zig");
 
+// 模块采集函数统一签名。
 const Collector = fn (allocator: std.mem.Allocator) anyerror![]const u8;
 
+// 模块定义：名字 + 采集函数。
 const ModuleDef = struct {
     name: []const u8,
     collect: *const Collector,
 };
 
+// 模块注册表：决定默认顺序和可用模块集合。
 const module_defs = [_]ModuleDef{
     .{ .name = "os", .collect = os.collect },
     .{ .name = "kernel", .collect = kernel.collect },
@@ -23,6 +26,7 @@ const module_defs = [_]ModuleDef{
     .{ .name = "uptime", .collect = uptime.collect },
 };
 
+// 按配置筛选并收集模块结果。
 pub fn collectSelected(allocator: std.mem.Allocator, cfg: types.Config) ![]types.ModuleResult {
     var list: std.ArrayList(types.ModuleResult) = .empty;
     defer list.deinit(allocator);
@@ -36,6 +40,7 @@ pub fn collectSelected(allocator: std.mem.Allocator, cfg: types.Config) ![]types
     return try list.toOwnedSlice(allocator);
 }
 
+// 将模块内部错误映射为统一的对外状态。
 fn collectOne(allocator: std.mem.Allocator, def: ModuleDef) !types.ModuleResult {
     const value = def.collect(allocator) catch |err| switch (err) {
         error.Unsupported => return .{
@@ -56,4 +61,3 @@ fn collectOne(allocator: std.mem.Allocator, def: ModuleDef) !types.ModuleResult 
         .status = .ok,
     };
 }
-

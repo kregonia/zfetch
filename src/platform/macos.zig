@@ -1,19 +1,23 @@
 const std = @import("std");
 
+// 通过 uname 读取 Darwin 内核版本。
 pub fn readKernelVersion(allocator: std.mem.Allocator) !?[]const u8 {
     return runAndTrim(allocator, &.{ "uname", "-r" });
 }
 
+// 通过 sysctl 读取 CPU 品牌字符串。
 pub fn readCpuModel(allocator: std.mem.Allocator) !?[]const u8 {
     return runAndTrim(allocator, &.{ "sysctl", "-n", "machdep.cpu.brand_string" });
 }
 
+// 通过 sysctl 读取内存总字节并换算为 MiB。
 pub fn readMemTotalMiB(allocator: std.mem.Allocator) !?u64 {
     const bytes_text = runAndTrim(allocator, &.{ "sysctl", "-n", "hw.memsize" }) orelse return null;
     const bytes = std.fmt.parseInt(u64, bytes_text, 10) catch return null;
     return bytes / (1024 * 1024);
 }
 
+// 读取开机时间并与当前时间相减，得到 uptime 秒数。
 pub fn readUptimeSeconds(allocator: std.mem.Allocator) !?u64 {
     const output = runAndTrim(allocator, &.{ "sysctl", "-n", "kern.boottime" }) orelse return null;
     const sec_tag = "sec = ";
@@ -26,6 +30,7 @@ pub fn readUptimeSeconds(allocator: std.mem.Allocator) !?u64 {
     return @intCast(now_seconds - boot_seconds);
 }
 
+// 执行外部命令并返回去除首尾空白后的 stdout。
 fn runAndTrim(allocator: std.mem.Allocator, argv: []const []const u8) ?[]const u8 {
     const result = std.process.Child.run(.{
         .allocator = allocator,
@@ -36,4 +41,3 @@ fn runAndTrim(allocator: std.mem.Allocator, argv: []const []const u8) ?[]const u
     if (result.term != .Exited or result.term.Exited != 0) return null;
     return std.mem.trim(u8, result.stdout, " \t\r\n");
 }
-

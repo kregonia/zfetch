@@ -1,5 +1,6 @@
 const std = @import("std");
 
+// 从 /etc/os-release 读取发行版可读名称。
 pub fn readPrettyOsName(allocator: std.mem.Allocator) !?[]const u8 {
     const data = readSmallFile(allocator, "/etc/os-release", 16 * 1024) catch return null;
     var lines = std.mem.splitScalar(u8, data, '\n');
@@ -12,11 +13,13 @@ pub fn readPrettyOsName(allocator: std.mem.Allocator) !?[]const u8 {
     return null;
 }
 
+// 从内核导出文件读取版本号。
 pub fn readKernelVersion(allocator: std.mem.Allocator) !?[]const u8 {
     const value = readSmallFile(allocator, "/proc/sys/kernel/osrelease", 1024) catch return null;
     return try allocator.dupe(u8, std.mem.trim(u8, value, " \t\r\n"));
 }
 
+// 从 /proc/cpuinfo 读取第一条 CPU 型号信息。
 pub fn readCpuModel(allocator: std.mem.Allocator) !?[]const u8 {
     const data = readSmallFile(allocator, "/proc/cpuinfo", 256 * 1024) catch return null;
     var lines = std.mem.splitScalar(u8, data, '\n');
@@ -29,6 +32,7 @@ pub fn readCpuModel(allocator: std.mem.Allocator) !?[]const u8 {
     return null;
 }
 
+// 从 /proc/meminfo 读取 MemTotal 并转换为 MiB。
 pub fn readMemTotalMiB(allocator: std.mem.Allocator) !?u64 {
     const data = readSmallFile(allocator, "/proc/meminfo", 16 * 1024) catch return null;
     var lines = std.mem.splitScalar(u8, data, '\n');
@@ -43,6 +47,7 @@ pub fn readMemTotalMiB(allocator: std.mem.Allocator) !?u64 {
     return null;
 }
 
+// 从 /proc/uptime 读取运行秒数（取整数部分）。
 pub fn readUptimeSeconds(allocator: std.mem.Allocator) !?u64 {
     const data = readSmallFile(allocator, "/proc/uptime", 256) catch return null;
     var parts = std.mem.tokenizeScalar(u8, data, ' ');
@@ -52,6 +57,7 @@ pub fn readUptimeSeconds(allocator: std.mem.Allocator) !?u64 {
     return std.fmt.parseInt(u64, integer_part, 10) catch null;
 }
 
+// 读取小文件的通用 helper，限制最大读取长度。
 fn readSmallFile(allocator: std.mem.Allocator, path: []const u8, max_len: usize) ![]u8 {
     const file = try std.fs.openFileAbsolute(path, .{});
     defer file.close();

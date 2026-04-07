@@ -4,31 +4,38 @@ const modules = @import("modules/mod.zig");
 const render_text = @import("render/text.zig");
 const render_json = @import("render/json.zig");
 
+// CLI 层可感知的参数错误类型。
 const CliError = error{
     InvalidArguments,
     HelpDisplayed,
 };
 
 pub fn run() !void {
+    // 通用分配器：用于 Arena 自身和少量长期对象。
     var gpa_state = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa_state.deinit();
     const gpa = gpa_state.allocator();
 
+    // Arena：本次执行生命周期内的临时字符串与结果集合。
     var arena_state = std.heap.ArenaAllocator.init(gpa);
     defer arena_state.deinit();
     const arena = arena_state.allocator();
 
+    // --help 会直接打印用法并正常退出。
     const cfg = parseArgs(arena) catch |err| switch (err) {
         error.HelpDisplayed => return,
         else => return err,
     };
 
+    // 按配置收集模块数据。
     const results = try modules.collectSelected(arena, cfg);
 
+    // 使用缓冲写，减少 stdout 系统调用次数。
     var stdout_buffer: [4096]u8 = undefined;
     var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
     const stdout = &stdout_writer.interface;
 
+    // 根据输出模式选择渲染器。
     switch (cfg.output_mode) {
         .text => try render_text.write(stdout, results, cfg.color),
         .json => try render_json.write(stdout, results),
@@ -40,38 +47,34 @@ fn parseArgs(allocator: std.mem.Allocator) !types.Config {
     var cfg = types.Config{};
     const args = try std.process.argsAlloc(allocator);
 
+    // 从 argv[1] 开始解析用户参数。
     var i: usize = 1;
     while (i < args.len) : (i += 1) {
         const arg = args[i];
-        if (std.mem.eql(u8, arg, "--json")) {
-            cfg.output_mode = .json;
-            continue;
-        }
-        if (std.mem.eql(u8, arg, "--no-color")) {
-            cfg.color = false;
-            continue;
-        }
-        if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
-            try writeUsage();
-            return CliError.HelpDisplayed;
-        }
-        if (std.mem.startsWith(u8, arg, "--modules=")) {
-            const value = arg["--modules=".len..];
-            cfg.selected_modules = try parseModuleList(allocator, value);
-            continue;
-        }
-        if (std.mem.eql(u8, arg, "--modules") or std.mem.eql(u8, arg, "-m")) {
-            if (i + 1 >= args.len) {
-                try writeError("missing value after --modules");
+        switch (arg) {
+            std.mem.eql(u8, arg, "--json") => cfg.output_mode = .json,
+            std.mem.eql(u8, arg, "--no-color") => cfg.color = false,
+            std.mem.startsWith(u8, arg, "--modules=") => {
+                const value = arg["--modules=".len..];
+                cfg.selected_modules = try parseModuleList(allocator, value);
+            },
+            std.mem.eql(u8, arg, "--model=") => {
+                if (i + 1 >= args.len) {
+                    try writeError("missing value after --modules");
+                    return CliError.InvalidArguments;
+                }
+                i += 1;
+                cfg.selected_modules = try parseModuleList(allocator, args[i]);
+            },
+            std.mem.eql(u8, arg, "--help") => {
+                try writeUsage();
+                return CliError.HelpDisplayed;
+            },
+            else => {
+                try writeErrorFmt("unknown argument: {s}", .{arg});
                 return CliError.InvalidArguments;
-            }
-            i += 1;
-            cfg.selected_modules = try parseModuleList(allocator, args[i]);
-            continue;
+            },
         }
-
-        try writeErrorFmt("unknown argument: {s}", .{arg});
-        return CliError.InvalidArguments;
     }
 
     return cfg;
@@ -81,6 +84,7 @@ fn parseModuleList(allocator: std.mem.Allocator, raw: []const u8) ![][]const u8 
     var list: std.ArrayList([]const u8) = .empty;
     defer list.deinit(allocator);
 
+    // 允许空格，忽略空项。
     var iter = std.mem.splitScalar(u8, raw, ',');
     while (iter.next()) |entry| {
         const trimmed = std.mem.trim(u8, entry, " \t\r\n");
@@ -91,6 +95,7 @@ fn parseModuleList(allocator: std.mem.Allocator, raw: []const u8) ![][]const u8 
 }
 
 fn writeUsage() !void {
+    // 用法信息输出到 stderr，和多数 CLI 工具保持一致。
     var stderr_buffer: [2048]u8 = undefined;
     var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
     const stderr = &stderr_writer.interface;
@@ -120,6 +125,7 @@ fn writeErrorFmt(comptime fmt: []const u8, args: anytype) !void {
     var stderr_buffer: [2048]u8 = undefined;
     var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
     const stderr = &stderr_writer.interface;
+    // 给出错误并提示用户查看帮助。
     try stderr.print("error: ", .{});
     try stderr.print(fmt, args);
     try stderr.print("\nrun `mgrep --help` for usage\n", .{});
@@ -139,4 +145,3 @@ test "parse module list" {
     try std.testing.expect(std.mem.eql(u8, modules_list[1], "cpu"));
     try std.testing.expect(std.mem.eql(u8, modules_list[2], "uptime"));
 }
-
