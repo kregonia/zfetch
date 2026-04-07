@@ -10,7 +10,7 @@ pub fn write(writer: *std.Io.Writer, results: []const types.ModuleResult, color:
 
     for (results) |item| {
         if (color) {
-            try writer.print("\x1b[36m{s}\x1b[0m", .{item.name});
+            try writer.print("\x1b[32m{s:<5} {s}\x1b[0m", .{ item.icon, item.value });
         } else {
             try writer.print("{s}", .{item.name});
         }

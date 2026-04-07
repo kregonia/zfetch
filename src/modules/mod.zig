@@ -42,22 +42,35 @@ pub fn collectSelected(allocator: std.mem.Allocator, cfg: types.Config) ![]types
 
 // 将模块内部错误映射为统一的对外状态。
 fn collectOne(allocator: std.mem.Allocator, def: ModuleDef) !types.ModuleResult {
+    var res: types.ModuleResult = .{ .icon = "", .name = def.name, .value = "unavailable", .status = .unavailable };
     const value = def.collect(allocator) catch |err| switch (err) {
-        error.Unsupported => return .{
-            .name = def.name,
-            .value = "unsupported",
-            .status = .unsupported,
-        },
-        else => return .{
-            .name = def.name,
-            .value = "unavailable",
-            .status = .unavailable,
-        },
+        error.Unsupported => return res,
+        else => return res,
     };
 
-    return .{
-        .name = def.name,
-        .value = value,
-        .status = .ok,
-    };
+    res.status = .ok;
+    res.value = value;
+    if (std.mem.eql(u8, res.name, "os")) {
+        if (std.mem.eql(u8, value, "macOS")) {
+            res.icon = "";
+        } else {
+            res.icon = "";
+        }
+    }
+    if (std.mem.eql(u8, res.name, "kernel")) {
+        res.icon = "";
+    }
+    if (std.mem.eql(u8, res.name, "cpu")) {
+        res.icon = "";
+    }
+    if (std.mem.eql(u8, res.name, "memory")) {
+        res.icon = "";
+    }
+    if (std.mem.eql(u8, res.name, "shell")) {
+        res.icon = "";
+    }
+    if (std.mem.eql(u8, res.name, "uptime")) {
+        res.icon = "";
+    }
+    return res;
 }

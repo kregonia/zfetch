@@ -17,6 +17,7 @@ pub const ModuleStatus = enum {
 pub const ModuleResult = struct {
     name: []const u8,
     value: []const u8,
+    icon: []const u8,
     status: ModuleStatus,
 };
 

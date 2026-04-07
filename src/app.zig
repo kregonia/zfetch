@@ -51,30 +51,36 @@ fn parseArgs(allocator: std.mem.Allocator) !types.Config {
     var i: usize = 1;
     while (i < args.len) : (i += 1) {
         const arg = args[i];
-        switch (arg) {
-            std.mem.eql(u8, arg, "--json") => cfg.output_mode = .json,
-            std.mem.eql(u8, arg, "--no-color") => cfg.color = false,
-            std.mem.startsWith(u8, arg, "--modules=") => {
-                const value = arg["--modules=".len..];
-                cfg.selected_modules = try parseModuleList(allocator, value);
-            },
-            std.mem.eql(u8, arg, "--model=") => {
-                if (i + 1 >= args.len) {
-                    try writeError("missing value after --modules");
-                    return CliError.InvalidArguments;
-                }
-                i += 1;
-                cfg.selected_modules = try parseModuleList(allocator, args[i]);
-            },
-            std.mem.eql(u8, arg, "--help") => {
-                try writeUsage();
-                return CliError.HelpDisplayed;
-            },
-            else => {
-                try writeErrorFmt("unknown argument: {s}", .{arg});
-                return CliError.InvalidArguments;
-            },
+        if (std.mem.eql(u8, arg, "--json")) {
+            cfg.output_mode = .json;
+            continue;
         }
+        if (std.mem.eql(u8, arg, "--no-color")) {
+            cfg.color = false;
+            continue;
+        }
+        if (std.mem.startsWith(u8, arg, "--modules=")) {
+            const value = arg["--modules=".len..];
+            cfg.selected_modules = try parseModuleList(allocator, value);
+            continue;
+        }
+        // 兼容 "--modules a,b,c" 与 "-m a,b,c" 两种写法。
+        if (std.mem.eql(u8, arg, "--modules") or std.mem.eql(u8, arg, "-m")) {
+            if (i + 1 >= args.len) {
+                try writeError("missing value after --modules");
+                return CliError.InvalidArguments;
+            }
+            i += 1;
+            cfg.selected_modules = try parseModuleList(allocator, args[i]);
+            continue;
+        }
+        if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
+            try writeUsage();
+            return CliError.HelpDisplayed;
+        }
+
+        try writeErrorFmt("unknown argument: {s}", .{arg});
+        return CliError.InvalidArguments;
     }
 
     return cfg;
